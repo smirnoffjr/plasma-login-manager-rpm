@@ -1,0 +1,134 @@
+commit 4c70baef0a6b3c7ba9c1f359abee7a8175f1de1b
+Author: Raphaël Erard <rerardd@gmail.com>
+Date:   Fri Apr 3 21:33:06 2026 +0200
+
+    Turn off screen after delay
+
+diff --git a/src/frontend/greeter/greetereventfilter.cpp b/src/frontend/greeter/greetereventfilter.cpp
+index 9a69cc6..faa0f61 100644
+--- a/src/frontend/greeter/greetereventfilter.cpp
++++ b/src/frontend/greeter/greetereventfilter.cpp
+@@ -14,6 +14,21 @@ GreeterEventFilter::GreeterEventFilter(QObject *parent)
+ {
+ }
+ 
++void GreeterEventFilter::turnOffScreens()
++{
++    auto dpms = new KScreen::Dpms(this);
++    if (dpms->isSupported()) {
++        connect(dpms, &KScreen::Dpms::hasPendingChangesChanged, this, [dpms](bool hasPendingChanges) {
++            if (!hasPendingChanges) {
++                dpms->deleteLater();
++            }
++        });
++        dpms->switchMode(KScreen::Dpms::Off);
++    } else {
++        dpms->deleteLater();
++    }
++}
++
+ bool GreeterEventFilter::eventFilter(QObject *obj, QEvent *event)
+ {
+     Q_UNUSED(obj)
+@@ -22,19 +37,7 @@ bool GreeterEventFilter::eventFilter(QObject *obj, QEvent *event)
+         auto *keyEvent = static_cast<QKeyEvent *>(event);
+ 
+         if (keyEvent->key() == Qt::Key_Escape) {
+-            // Esc -> turn off screens
+-            auto dpms = new KScreen::Dpms(this);
+-            if (dpms->isSupported()) {
+-                connect(dpms, &KScreen::Dpms::hasPendingChangesChanged, this, [dpms](bool hasPendingChanges) {
+-                    if (!hasPendingChanges) {
+-                        dpms->deleteLater();
+-                    }
+-                });
+-                dpms->switchMode(KScreen::Dpms::Off);
+-            } else {
+-                dpms->deleteLater();
+-            }
+-
++            turnOffScreens();
+             Q_EMIT escapeKeyPressed();
+ 
+             return true;
+diff --git a/src/frontend/greeter/greetereventfilter.h b/src/frontend/greeter/greetereventfilter.h
+index e485b46..4c14f02 100644
+--- a/src/frontend/greeter/greetereventfilter.h
++++ b/src/frontend/greeter/greetereventfilter.h
+@@ -13,6 +13,8 @@ class GreeterEventFilter : public QObject
+ public:
+     explicit GreeterEventFilter(QObject *parent = nullptr);
+ 
++    Q_INVOKABLE void turnOffScreens();
++
+ Q_SIGNALS:
+     void keyPressed();
+     void escapeKeyPressed();
+diff --git a/src/frontend/greeter/qml/GreeterState.qml b/src/frontend/greeter/qml/GreeterState.qml
+index 68395e9..f6e8c19 100644
+--- a/src/frontend/greeter/qml/GreeterState.qml
++++ b/src/frontend/greeter/qml/GreeterState.qml
+@@ -96,6 +96,8 @@ Item {
+         }
+     }
+ 
++    signal screenOffRequested()
++
+     Timer {
+         id: greeterTimeoutTimer
+         running: false
+@@ -104,10 +106,18 @@ Item {
+             if (internal.activeWindow) {
+                 greeterState.showPassword = false;
+                 timeoutWindow(internal.activeWindow);
++                screenOffTimer.start();
+             }
+         }
+     }
+ 
++    Timer {
++        id: screenOffTimer
++        running: false
++        interval: 30000
++        onTriggered: greeterState.screenOffRequested()
++    }
++
+     function clearPasswords(): void {
+         userListPassword = "";
+         userPromptPassword = "";
+@@ -122,6 +132,8 @@ Item {
+ 
+         window.requestActivate();
+ 
++        screenOffTimer.stop();
++
+         if (!inhibitGreeterTimeout) {
+             greeterTimeoutTimer.restart();
+         }
+@@ -133,6 +145,7 @@ Item {
+         }
+ 
+         greeterTimeoutTimer.stop();
++        screenOffTimer.stop();
+     }
+ 
+     // Remember last logged in user/session
+diff --git a/src/frontend/greeter/qml/Main.qml b/src/frontend/greeter/qml/Main.qml
+index eb5b499..d6f0ba2 100644
+--- a/src/frontend/greeter/qml/Main.qml
++++ b/src/frontend/greeter/qml/Main.qml
+@@ -43,6 +43,14 @@ Item {
+         target: mainStack
+     }
+ 
++    Connections {
++        target: PlasmaLogin.GreeterState
++
++        function onScreenOffRequested(): void {
++            greeterEventFilter.turnOffScreens();
++        }
++    }
++
+     Connections {
+         target: greeterEventFilter
+ 
