@@ -2,7 +2,7 @@
 %bcond x11 %[%{undefined rhel}]
 
 Name:           plasma-login-manager
-Version:        6.7.3
+Version:        6.7.4
 Release:        100%{?dist}
 License:        BSD-3-Clause and CC0-1.0 and (GPL-2.0-only or GPL-3.0-only) and GPL-2.0-or-later and LGPL-2.0-or-later and LGPL-2.1-or-later
 Summary:        QML based login manager from KDE
@@ -25,6 +25,10 @@ Source12:       plasmalogin.sysusers
 Source13:       plasmalogin.conf
 
 # upstream patches
+
+# VirtualTerminal: replace unconditional VT takeover with a bounded wait
+# https://invent.kde.org/plasma/plasma-login-manager/-/merge_requests/170
+Patch0:         170.patch
 
 # proposed patches
 
@@ -217,6 +221,18 @@ desktop-file-validate %{buildroot}/%{_datadir}/applications/kcm_plasmalogin.desk
 
 
 %changelog
+* Tue Aug 04 2026 Steve Cossette <farchord@gmail.com> - 6.7.4-1
+- 6.7.4
+
+* Fri Jul 17 2026 Steve Cossette <farchord@gmail.com> - 6.7.3-4
+- Fixing the previous fix
+
+* Fri Jul 17 2026 Steve Cossette <farchord@gmail.com> - 6.7.3-3
+- Fix for issue where logging out drops you into tty
+
+* Thu Jul 16 2026 Fedora Release Engineering <releng@fedoraproject.org> - 6.7.3-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_45_Mass_Rebuild
+
 * Tue Jul 14 2026 Steve Cossette <farchord@gmail.com> - 6.7.3-1
 - 6.7.3
 
